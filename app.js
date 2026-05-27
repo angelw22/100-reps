@@ -43,12 +43,21 @@ function onGISLoaded() {
     client_id: CONFIG.CLIENT_ID,
     scope: CONFIG.SCOPE,
     callback: onTokenReceived,
+    error_callback: (err) => {
+      if (err.type !== 'popup_closed') {
+        showToast('Auth error: ' + err.type, 'error');
+      }
+    },
   });
+  if (localStorage.getItem('gis_signed_in')) {
+    tokenClient.requestAccessToken({ prompt: '' });
+  }
 }
 
 async function onTokenReceived(resp) {
   if (resp.error) { showToast('Auth error: ' + resp.error, 'error'); return; }
   accessToken = resp.access_token;
+  localStorage.setItem('gis_signed_in', '1');
   document.getElementById('auth-btn').textContent = 'Refresh';
   await identifyUser();
   loadData();
