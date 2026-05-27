@@ -6,8 +6,8 @@
 //    JavaScript origin, and the same for production when you deploy.
 // 4. Paste the values below.
 const CONFIG = {
-  CLIENT_ID: '__CLIENT_ID__',
-  SHEET_ID:  '__SHEET_ID__',
+  CLIENT_ID: process.env.CLIENT_ID,
+  SHEET_ID:  process.env.SHEET_ID,
   SHEET_NAME: 'Daily Log',                   // tab name inside the spreadsheet
   DATA_START_ROW: 3,                      // row where data begins (1-indexed); row 1=title, 2=headers
   SCOPE: 'https://www.googleapis.com/auth/spreadsheets openid profile email',
