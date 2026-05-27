@@ -22,13 +22,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Inject secrets
-        run: |
-          sed -i "s|__GAS_URL__|${{ secrets.GAS_URL }}|g" app.js
-          sed -i "s/__API_KEY__/${{ secrets.API_KEY }}/g" app.js
-          echo "--- first 6 lines of app.js after injection ---"
-          head -6 app.js
-
       - uses: actions/configure-pages@v5
 
       - uses: actions/upload-pages-artifact@v3

@@ -1,7 +1,7 @@
 // ─── CONFIG ───────────────────────────────────────────────────────────────────
 const CONFIG = {
-  GAS_URL:       '__GAS_URL__',
-  API_KEY:       '__API_KEY__',
+  GAS_URL:       'https://script.googleapis.com/v1/scripts/AKfycbyVC9030HPQpQZg2O2JSoMR3Y_gSAUt0PDdTQyJaY0V50Qz0YqvIK7oywRUA2pysBkBLw:run',
+  API_KEY:       'nhgjhkyi68432h293ufdfslkdsdsl23189342k*$@md72',
   SHEET_NAME:    'Daily Log',
   DATA_START_ROW: 3,
 };
