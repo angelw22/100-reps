@@ -1,6 +1,6 @@
 // ─── CONFIG ───────────────────────────────────────────────────────────────────
 const CONFIG = {
-  GAS_URL:       'https://script.googleapis.com/v1/scripts/AKfycbyVC9030HPQpQZg2O2JSoMR3Y_gSAUt0PDdTQyJaY0V50Qz0YqvIK7oywRUA2pysBkBLw:run',
+  GAS_URL:       'https://script.google.com/macros/s/AKfycbw3NNJWt4QOFo-92X_lcWiEOTVuqZEhpjABwDtPDEANCWGliBNHVr4Yo7yRLboJRzLQGw/exec',
   API_KEY:       'nhgjhkyi68432h293ufdfslkdsdsl23189342k*$@md72',
   SHEET_NAME:    'Daily Log',
   DATA_START_ROW: 3,
