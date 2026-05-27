@@ -1,16 +1,9 @@
 // ─── CONFIG ───────────────────────────────────────────────────────────────────
-// 1. Go to console.cloud.google.com and create a project.
-// 2. Enable "Google Sheets API".
-// 3. Create OAuth 2.0 credentials (type: Web application).
-//    Add your local dev URL (e.g. http://localhost:5500) as an Authorized
-//    JavaScript origin, and the same for production when you deploy.
-// 4. Paste the values below.
 const CONFIG = {
-  CLIENT_ID: '__CLIENT_ID__',
-  SHEET_ID:  '__SHEET_ID__',
-  SHEET_NAME: 'Daily Log',                   // tab name inside the spreadsheet
-  DATA_START_ROW: 3,                      // row where data begins (1-indexed); row 1=title, 2=headers
-  SCOPE: 'https://www.googleapis.com/auth/spreadsheets openid profile email',
+  GAS_URL:       '__GAS_URL__',
+  API_KEY:       '__API_KEY__',
+  SHEET_NAME:    'Daily Log',
+  DATA_START_ROW: 3,
 };
 
 // Column indices (0-based) in the values array returned from the API
@@ -27,74 +20,56 @@ const COL = {
 };
 
 // ─── STATE ────────────────────────────────────────────────────────────────────
-let tokenClient = null;
-let accessToken = null;
-let currentUser = null; // 'angel' | 'cherie' | null
-let rows = [];          // raw 2D array from the sheet
+let currentUser = null; // 'angel' | 'cherie'
+let rows = [];
 let todayCounters = { push: 0, pull: 0 };
 
-// ─── GIS INIT ─────────────────────────────────────────────────────────────────
-function onGISLoaded() {
-  if (!CONFIG.CLIENT_ID || CONFIG.CLIENT_ID === 'YOUR_CLIENT_ID_HERE') {
-    document.getElementById('config-banner').classList.remove('hidden');
-    return;
+// ─── INIT ─────────────────────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+  const saved = localStorage.getItem('current_user');
+  if (saved === 'angel' || saved === 'cherie') {
+    setUser(saved);
+  } else {
+    document.getElementById('user-picker').classList.remove('hidden');
+    document.getElementById('empty-state').classList.remove('hidden');
   }
-  tokenClient = google.accounts.oauth2.initTokenClient({
-    client_id: CONFIG.CLIENT_ID,
-    scope: CONFIG.SCOPE,
-    callback: onTokenReceived,
-    error_callback: (err) => {
-      if (err.type !== 'popup_closed') {
-        showToast('Auth error: ' + err.type, 'error');
-      }
-    },
-  });
-  if (localStorage.getItem('gis_signed_in')) {
-    tokenClient.requestAccessToken({ prompt: '' });
-  }
+});
+
+function pickUser(name) {
+  localStorage.setItem('current_user', name);
+  document.getElementById('user-picker').classList.add('hidden');
+  setUser(name);
 }
 
-async function onTokenReceived(resp) {
-  if (resp.error) { showToast('Auth error: ' + resp.error, 'error'); return; }
-  accessToken = resp.access_token;
-  localStorage.setItem('gis_signed_in', '1');
-  document.getElementById('auth-btn').textContent = 'Refresh';
-  await identifyUser();
+function setUser(name) {
+  currentUser = name;
+  const label = document.getElementById('user-label');
+  label.textContent = name === 'angel' ? 'Angel' : 'Cherie';
+  label.classList.remove('hidden');
+  document.getElementById('auth-btn').classList.remove('hidden');
   loadData();
 }
 
-async function identifyUser() {
-  try {
-    const res = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
-      headers: { Authorization: `Bearer ${accessToken}` },
-    });
-    const info = await res.json();
-    const firstName = (info.given_name || info.name || '').toLowerCase();
-    currentUser = firstName.includes('angel') ? 'angel'
-                : firstName.includes('cherie') ? 'cherie'
-                : null;
-    const label = document.getElementById('user-label');
-    label.textContent = `Hi, ${info.given_name || info.name}${currentUser ? '' : ' (unknown)'}`;
-    label.classList.remove('hidden');
-  } catch (e) {
-    console.warn('Could not fetch user info', e);
-  }
-}
-
-function handleAuth() {
-  if (!tokenClient) { showToast('GIS not loaded yet — try again in a moment.', 'error'); return; }
-  tokenClient.requestAccessToken({ prompt: accessToken ? '' : 'select_account' });
+function switchUser() {
+  localStorage.removeItem('current_user');
+  currentUser = null;
+  document.getElementById('user-label').classList.add('hidden');
+  document.getElementById('auth-btn').classList.add('hidden');
+  document.getElementById('summary-section').classList.add('hidden');
+  document.getElementById('weeks-section').classList.add('hidden');
+  document.getElementById('log-today-section').classList.add('hidden');
+  document.getElementById('empty-state').classList.remove('hidden');
+  document.getElementById('user-picker').classList.remove('hidden');
 }
 
 // ─── DATA LOADING ─────────────────────────────────────────────────────────────
 async function loadData() {
   showLoading(true);
   try {
-    const range = `'${CONFIG.SHEET_NAME}'!A${CONFIG.DATA_START_ROW}:I`;
-    const url = `https://sheets.googleapis.com/v4/spreadsheets/${CONFIG.SHEET_ID}/values/${encodeURIComponent(range)}`;
-    const res = await apiFetch(url);
-    rows = res.values || [];
-    dirtyRows = {};
+    const res  = await fetch(`${CONFIG.GAS_URL}?key=${encodeURIComponent(CONFIG.API_KEY)}`);
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+    rows = data.values || [];
     renderAll();
     document.getElementById('empty-state').classList.add('hidden');
     document.getElementById('summary-section').classList.remove('hidden');
@@ -325,32 +300,20 @@ function adjustCounter(type, delta) {
 
 // ─── SAVING ───────────────────────────────────────────────────────────────────
 async function saveToday(todayIndex) {
-  if (!accessToken) { showToast('Sign in first.', 'error'); return; }
+  if (!currentUser) { showToast('Select a user first.', 'error'); return; }
 
   const push     = todayCounters.push;
   const pull     = todayCounters.pull;
   const sheetRow = todayIndex + CONFIG.DATA_START_ROW;
 
-  // Write only push and pull — leave the total column alone so sheet formulas stay intact
-  const pushRange = currentUser === 'angel'
-    ? `'${CONFIG.SHEET_NAME}'!F${sheetRow}`
-    : `'${CONFIG.SHEET_NAME}'!C${sheetRow}`;
-  const pullRange = currentUser === 'angel'
-    ? `'${CONFIG.SHEET_NAME}'!G${sheetRow}`
-    : `'${CONFIG.SHEET_NAME}'!D${sheetRow}`;
-
   showLoading(true);
   try {
-    await apiFetch(`https://sheets.googleapis.com/v4/spreadsheets/${CONFIG.SHEET_ID}/values:batchUpdate`, {
+    const res = await fetch(CONFIG.GAS_URL, {
       method: 'POST',
-      body: JSON.stringify({
-        valueInputOption: 'USER_ENTERED',
-        data: [
-          { range: pushRange, values: [[push]] },
-          { range: pullRange, values: [[pull]] },
-        ],
-      }),
+      body: JSON.stringify({ key: CONFIG.API_KEY, user: currentUser, sheetRow, push, pull }),
     });
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
 
     const pushCol = currentUser === 'angel' ? COL.ANGEL_PUSH : COL.CHERIE_PUSH;
     const pullCol = currentUser === 'angel' ? COL.ANGEL_PULL : COL.CHERIE_PULL;
@@ -366,23 +329,6 @@ async function saveToday(todayIndex) {
   } finally {
     showLoading(false);
   }
-}
-
-// ─── API HELPER ───────────────────────────────────────────────────────────────
-async function apiFetch(url, options = {}) {
-  const res = await fetch(url, {
-    ...options,
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-      'Content-Type': 'application/json',
-      ...(options.headers || {}),
-    },
-  });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err?.error?.message || `HTTP ${res.status}`);
-  }
-  return res.json();
 }
 
 // ─── UTILITIES ────────────────────────────────────────────────────────────────

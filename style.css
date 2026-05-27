@@ -583,3 +583,34 @@ tbody td.td-day {
   tbody td { padding: 5px 6px; }
   .week-header { padding: 10px 14px; }
 }
+
+/* ─── USER PICKER OVERLAY ──────────────────────────────────────────────────── */
+.user-picker {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+.user-picker.hidden { display: none; }
+
+.user-picker-card {
+  background: var(--surface);
+  border-radius: var(--radius-lg);
+  padding: 40px 32px;
+  text-align: center;
+  box-shadow: var(--shadow-lg);
+}
+.user-picker-card h2 { margin: 0 0 28px; font-size: 1.4rem; }
+.user-picker-buttons {
+  display: flex;
+  gap: 16px;
+  justify-content: center;
+}
+.user-picker-buttons .btn {
+  min-width: 120px;
+  font-size: 1.1rem;
+  padding: 12px 24px;
+}

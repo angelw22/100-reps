@@ -24,8 +24,8 @@ jobs:
 
       - name: Inject secrets
         run: |
-          sed -i "s/__CLIENT_ID__/${{ secrets.CLIENT_ID }}/g" app.js
-          sed -i "s/__SHEET_ID__/${{ secrets.SHEET_ID }}/g" app.js
+          sed -i "s|__GAS_URL__|${{ secrets.GAS_URL }}|g" app.js
+          sed -i "s/__API_KEY__/${{ secrets.API_KEY }}/g" app.js
 
       - uses: actions/configure-pages@v5
 
