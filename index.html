@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Push & Pull Counter</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <div id="config-banner" class="config-banner hidden">
+    <span>⚙️ Open <code>app.js</code> and set your <strong>SHEET_ID</strong> and <strong>CLIENT_ID</strong> before using the app.</span>
+    <button onclick="document.getElementById('config-banner').classList.add('hidden')">✕</button>
+  </div>
+
+  <header>
+    <div class="header-inner">
+      <div class="header-title">
+        <h1>100 Rep Challenge</h1>
+      </div>
+      <div class="header-actions">
+        <span id="user-label" class="user-label hidden"></span>
+        <button id="auth-btn" class="btn btn-primary" onclick="handleAuth()">Sign In with Google</button>
+      </div>
+    </div>
+  </header>
+
+  <main>
+     <!-- Log today -->
+    <section id="log-today-section" class="hidden">
+      <div id="log-today-card" class="log-today-card"></div>
+    </section>
+
+    <!-- Summary bar -->
+    <section id="summary-section" class="summary-section hidden">
+      <div class="summary-grid">
+        <div class="summary-card cherie">
+          <p class="summary-name">Cherie total</p>
+          <div class="summary-stats">
+            <div>
+              <span class="stat-value" id="cherie-push-total">0</span>
+              <span class="stat-label">Push</span>
+              <span class="pace-chip" id="cherie-push-pace"></span>
+            </div>
+            <div>
+              <span class="stat-value" id="cherie-pull-total">0</span>
+              <span class="stat-label">Pull</span>
+              <span class="pace-chip" id="cherie-pull-pace"></span>
+            </div>
+          </div>
+        </div>
+        <div class="summary-card angel">
+          <p class="summary-name">Angel total</p>
+          <div class="summary-stats">
+            <div>
+              <span class="stat-value" id="angel-push-total">0</span>
+              <span class="stat-label">Push</span>
+              <span class="pace-chip" id="angel-push-pace"></span>
+            </div>
+            <div>
+              <span class="stat-value" id="angel-pull-total">0</span>
+              <span class="stat-label">Pull</span>
+              <span class="pace-chip" id="angel-pull-pace"></span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Week blocks -->
+    <section id="weeks-section" class="weeks-section hidden">
+      <div id="weeks-container"></div>
+    </section>
+
+    <!-- Empty / not signed in state -->
+    <section id="empty-state" class="empty-state">
+      <div class="empty-icon">💪</div>
+      <h2>Track your reps</h2>
+      <p>Sign in with the Google account that has access to the shared sheet.</p>
+    </section>
+  </main>
+
+  <!-- Toast notification -->
+  <div id="toast" class="toast hidden"></div>
+
+  <!-- Loading overlay -->
+  <div id="loading" class="loading hidden">
+    <div class="spinner"></div>
+    <p>Loading…</p>
+  </div>
+
+  <script src="app.js"></script>
+  <!-- Google Identity Services -->
+  <script async defer src="https://accounts.google.com/gsi/client" onload="onGISLoaded()"></script>
+</body>
+</html>
