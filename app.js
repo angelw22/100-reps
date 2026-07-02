@@ -68,6 +68,7 @@ function switchUser() {
 
 // ─── ADD USER ─────────────────────────────────────────────────────────────────
 function showAddUserForm() {
+  document.getElementById('user-picker-buttons').classList.add('hidden');
   document.getElementById('add-user-form').classList.remove('hidden');
   document.getElementById('new-user-name').focus();
 }
@@ -75,6 +76,7 @@ function showAddUserForm() {
 function hideAddUserForm() {
   document.getElementById('add-user-form').classList.add('hidden');
   document.getElementById('new-user-name').value = '';
+  document.getElementById('user-picker-buttons').classList.remove('hidden');
 }
 
 async function confirmAddUser() {
@@ -96,6 +98,7 @@ async function confirmAddUser() {
     if (data.error) throw new Error(data.error);
 
     hideAddUserForm();
+    document.getElementById('user-picker').classList.add('hidden');
     await loadData();
     showToast(`${name} added!`, 'success');
   } catch (e) {
@@ -182,7 +185,7 @@ function renderUserPicker() {
   const container = document.getElementById('user-picker-buttons');
   container.innerHTML = users.map(u =>
     `<button class="btn btn-primary" onclick="pickUser('${u.name}')">${u.name}</button>`
-  ).join('') + `<button class="btn btn-ghost" onclick="showAddUserForm()">+ Add user</button>`;
+  ).join('') + `<div class="user-picker-add-row"><a class="textlink" onclick="showAddUserForm()">+ Add user</a></div>`;
 }
 
 function updateSummary() {

@@ -606,17 +606,25 @@ tbody td.td-day {
   padding: 40px 32px;
   text-align: center;
   box-shadow: var(--shadow-lg);
+  width: fit-content;
+  max-width: min(90vw, 600px);
 }
 .user-picker-card h2 { margin: 0 0 28px; font-size: 1.4rem; }
 .user-picker-buttons {
   display: flex;
-  gap: 16px;
+  flex-wrap: wrap;
+  gap: 12px;
   justify-content: center;
 }
 .user-picker-buttons .btn {
-  min-width: 120px;
+  min-width: 110px;
   font-size: 1.1rem;
   padding: 12px 24px;
+}
+.user-picker-add-row {
+  width: 100%;
+  text-align: center;
+  margin-top: 4px;
 }
 
 .add-user-form {
@@ -651,4 +659,13 @@ tbody td.td-day {
   margin: 1em;
   border-radius: 8px;
   border: 2px solid #FFEC9A;
+}
+
+.textlink {
+  background: none;
+  border: none;
+  color: var(--secondary-text);
+  cursor: pointer;
+  font-size: 0.9rem;
+  text-decoration: underline;
 }
