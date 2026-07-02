@@ -8,15 +8,13 @@ const CONFIG = {
 
 // Column indices (0-based) in the values array returned from the API
 const COL = {
-  DATE:         0, // A
-  DAY:          1, // B
-  CHERIE_PUSH:  2, // C
-  CHERIE_PULL:  3, // D
-  CHERIE_TOTAL: 4, // E
-  ANGEL_PUSH:   5, // F
-  ANGEL_PULL:   6, // G
-  ANGEL_TOTAL:  7, // H
-  WEEK_START:   8, // I
+  DATE:        0, // A
+  DAY:         1, // B
+  WEEK_START:  2, // C
+  CHERIE_PUSH: 3, // D
+  CHERIE_PULL: 4, // E
+  ANGEL_PUSH:  5, // F
+  ANGEL_PULL:  6, // G
 };
 
 // ─── STATE ────────────────────────────────────────────────────────────────────
