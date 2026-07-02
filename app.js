@@ -6,46 +6,55 @@ const CONFIG = {
   DATA_START_ROW: 3,
 };
 
-// Column indices (0-based) in the values array returned from the API
+// Fixed structural column indices — these never change
 const COL = {
-  DATE:        0, // A
-  DAY:         1, // B
-  WEEK_START:  2, // C
-  CHERIE_PUSH: 3, // D
-  CHERIE_PULL: 4, // E
-  ANGEL_PUSH:  5, // F
-  ANGEL_PULL:  6, // G
+  DATE:       0, // A
+  DAY:        1, // B
+  WEEK_START: 2, // C
 };
 
+// Color palette for user cards — cycles for additional users
+const USER_COLORS = [
+  { border: '#9ACBFF', text: '#1558A8' },
+  { border: '#FFEC9A', text: '#8A5E00' },
+  { border: '#86efac', text: '#166534' },
+  { border: '#fdba74', text: '#9a3412' },
+  { border: '#c4b5fd', text: '#5b21b6' },
+];
+
 // ─── STATE ────────────────────────────────────────────────────────────────────
-let currentUser = null; // 'angel' | 'cherie'
-let rows = [];
+let currentUser = null; // display name e.g. 'Angel'
+let rows    = [];
+let headers = [];
+let users   = []; // [{ name, pushCol, pullCol }, ...]
 let todayCounters = { push: 0, pull: 0 };
 
 // ─── INIT ─────────────────────────────────────────────────────────────────────
-document.addEventListener('DOMContentLoaded', () => {
-  const saved = localStorage.getItem('current_user');
-  if (saved === 'angel' || saved === 'cherie') {
-    setUser(saved);
+document.addEventListener('DOMContentLoaded', async () => {
+  await loadData();
+
+  const saved   = localStorage.getItem('current_user');
+  const matched = saved && users.find(u => u.name.toLowerCase() === saved.toLowerCase());
+  if (matched) {
+    activateUser(matched.name);
   } else {
     document.getElementById('user-picker').classList.remove('hidden');
-    document.getElementById('empty-state').classList.remove('hidden');
   }
 });
 
+// ─── USER MANAGEMENT ──────────────────────────────────────────────────────────
 function pickUser(name) {
   localStorage.setItem('current_user', name);
   document.getElementById('user-picker').classList.add('hidden');
-  setUser(name);
+  activateUser(name);
 }
 
-function setUser(name) {
+function activateUser(name) {
   currentUser = name;
-  const label = document.getElementById('user-label');
-  label.textContent = name === 'angel' ? 'Angel' : 'Cherie';
-  label.classList.remove('hidden');
+  document.getElementById('user-label').textContent = name;
+  document.getElementById('user-label').classList.remove('hidden');
   document.getElementById('auth-btn').classList.remove('hidden');
-  loadData();
+  renderLogToday();
 }
 
 function switchUser() {
@@ -53,11 +62,48 @@ function switchUser() {
   currentUser = null;
   document.getElementById('user-label').classList.add('hidden');
   document.getElementById('auth-btn').classList.add('hidden');
-  document.getElementById('summary-section').classList.add('hidden');
-  document.getElementById('weeks-section').classList.add('hidden');
   document.getElementById('log-today-section').classList.add('hidden');
-  document.getElementById('empty-state').classList.remove('hidden');
   document.getElementById('user-picker').classList.remove('hidden');
+}
+
+// ─── ADD USER ─────────────────────────────────────────────────────────────────
+function showAddUserForm() {
+  document.getElementById('add-user-form').classList.remove('hidden');
+  document.getElementById('new-user-name').focus();
+}
+
+function hideAddUserForm() {
+  document.getElementById('add-user-form').classList.add('hidden');
+  document.getElementById('new-user-name').value = '';
+}
+
+async function confirmAddUser() {
+  const input = document.getElementById('new-user-name');
+  const name  = input.value.trim();
+  if (!name) { showToast('Enter a name', 'error'); return; }
+  if (users.find(u => u.name.toLowerCase() === name.toLowerCase())) {
+    showToast('That name already exists', 'error');
+    return;
+  }
+
+  showLoading(true);
+  try {
+    const res  = await fetch(CONFIG.GAS_URL, {
+      method: 'POST',
+      body: JSON.stringify({ key: CONFIG.API_KEY, action: 'addUser', userName: name }),
+    });
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+
+    hideAddUserForm();
+    await loadData();
+    showToast(`${name} added!`, 'success');
+  } catch (e) {
+    showToast('Failed: ' + e.message, 'error');
+    console.error(e);
+  } finally {
+    showLoading(false);
+  }
 }
 
 // ─── DATA LOADING ─────────────────────────────────────────────────────────────
@@ -67,8 +113,15 @@ async function loadData() {
     const res  = await fetch(`${CONFIG.GAS_URL}?key=${encodeURIComponent(CONFIG.API_KEY)}`);
     const data = await res.json();
     if (data.error) throw new Error(data.error);
-    rows = data.values || [];
+
+    headers = data.headers || [];
+    rows    = data.values  || [];
+    users   = parseUsers(headers);
+
+    renderSummaryGrid();
+    renderUserPicker();
     renderAll();
+
     document.getElementById('empty-state').classList.add('hidden');
     document.getElementById('summary-section').classList.remove('hidden');
     document.getElementById('weeks-section').classList.remove('hidden');
@@ -80,6 +133,19 @@ async function loadData() {
   }
 }
 
+function parseUsers(hdrs) {
+  return hdrs
+    .filter(h => h.endsWith(' Push'))
+    .map(h => {
+      const name = h.slice(0, -5); // strip ' Push'
+      return {
+        name,
+        pushCol: hdrs.indexOf(h),
+        pullCol: hdrs.indexOf(name + ' Pull'),
+      };
+    });
+}
+
 // ─── RENDERING ────────────────────────────────────────────────────────────────
 function renderAll() {
   updateSummary();
@@ -87,30 +153,60 @@ function renderAll() {
   renderWeeks();
 }
 
-function updateSummary() {
-  let cp = 0, cpl = 0, ap = 0, apl = 0;
-  for (const row of rows) {
-    if (!isThisWeek(row[COL.WEEK_START])) continue;
-    cp  += num(row[COL.CHERIE_PUSH]);
-    cpl += num(row[COL.CHERIE_PULL]);
-    ap  += num(row[COL.ANGEL_PUSH]);
-    apl += num(row[COL.ANGEL_PULL]);
-  }
-  document.getElementById('cherie-push-total').textContent  = cp;
-  document.getElementById('cherie-pull-total').textContent  = cpl;
-  document.getElementById('angel-push-total').textContent   = ap;
-  document.getElementById('angel-pull-total').textContent   = apl;
+function renderSummaryGrid() {
+  const grid = document.getElementById('summary-grid');
+  grid.innerHTML = users.map((u, i) => {
+    const color = USER_COLORS[i % USER_COLORS.length];
+    const id    = sanitizeId(u.name);
+    return `
+      <div class="summary-card" style="border-top:3px solid ${color.border}">
+        <p class="summary-name" style="color:${color.text}">${u.name} total</p>
+        <div class="summary-stats">
+          <div>
+            <span class="stat-value" id="${id}-push-total">0</span>
+            <span class="stat-label">Push</span>
+            <span class="pace-chip" id="${id}-push-pace"></span>
+          </div>
+          <div>
+            <span class="stat-value" id="${id}-pull-total">0</span>
+            <span class="stat-label">Pull</span>
+            <span class="pace-chip" id="${id}-pull-pace"></span>
+          </div>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
 
-  const projected = weekDayProjected(100);
-  setPaceChip('cherie-push-pace', cp,  projected);
-  setPaceChip('cherie-pull-pace', cpl, projected);
-  setPaceChip('angel-push-pace',  ap,  projected);
-  setPaceChip('angel-pull-pace',  apl, projected);
+function renderUserPicker() {
+  const container = document.getElementById('user-picker-buttons');
+  container.innerHTML = users.map(u =>
+    `<button class="btn btn-primary" onclick="pickUser('${u.name}')">${u.name}</button>`
+  ).join('') + `<button class="btn btn-ghost" onclick="showAddUserForm()">+ Add user</button>`;
+}
+
+function updateSummary() {
+  for (const u of users) {
+    let push = 0, pull = 0;
+    for (const row of rows) {
+      if (!isThisWeek(row[COL.WEEK_START])) continue;
+      push += num(row[u.pushCol]);
+      pull += num(row[u.pullCol]);
+    }
+    const id     = sanitizeId(u.name);
+    const pushEl = document.getElementById(`${id}-push-total`);
+    const pullEl = document.getElementById(`${id}-pull-total`);
+    if (pushEl) pushEl.textContent = push;
+    if (pullEl) pullEl.textContent = pull;
+    const projected = weekDayProjected(100);
+    setPaceChip(`${id}-push-pace`, push, projected);
+    setPaceChip(`${id}-pull-pace`, pull, projected);
+  }
 }
 
 function weekDayProjected(target) {
-  const dow = new Date().getDay(); // 0=Sun
-  const dayOfWeek = dow === 0 ? 7 : dow; // 1=Mon … 7=Sun
+  const dow = new Date().getDay();
+  const dayOfWeek = dow === 0 ? 7 : dow;
   return (dayOfWeek / 7) * target;
 }
 
@@ -129,8 +225,7 @@ function setPaceChip(id, actual, projected) {
 }
 
 function renderWeeks() {
-  // Group rows by Week Start (column I)
-  const weeks = new Map(); // weekStart → [rowIndex, ...]
+  const weeks = new Map();
   rows.forEach((row, i) => {
     const ws = row[COL.WEEK_START] || 'Unknown';
     if (!weeks.has(ws)) weeks.set(ws, []);
@@ -142,8 +237,7 @@ function renderWeeks() {
 
   for (const [weekStart, indices] of weeks) {
     if (!isThisWeek(weekStart)) continue;
-    const card = buildWeekCard(weekStart, indices);
-    container.appendChild(card);
+    container.appendChild(buildWeekCard(weekStart, indices));
   }
 }
 
@@ -151,10 +245,15 @@ function buildWeekCard(weekStart, indices) {
   const card = document.createElement('div');
   card.className = 'week-card';
   card.dataset.week = weekStart;
+  if (isThisWeek(weekStart)) card.classList.add('open');
 
-  // Determine if this is the current week to auto-open it
-  const isCurrentWeek = isThisWeek(weekStart);
-  if (isCurrentWeek) card.classList.add('open');
+  const groupHeaders = users.map(u =>
+    `<th colspan="2" class="col-header">${u.name}</th>`
+  ).join('');
+
+  const subHeaders = users.map(() =>
+    `<th class="col-group-user">Push</th><th class="col-group-user">Pull</th>`
+  ).join('');
 
   card.innerHTML = `
     <div class="week-header" onclick="toggleWeek(this)">
@@ -172,43 +271,33 @@ function buildWeekCard(weekStart, indices) {
             <tr>
               <th class="th-date" rowspan="2">Date</th>
               <th rowspan="2">Day</th>
-              <th colspan="2" class="col-header">Cherie</th>
-              <th colspan="2" class="col-header">Angel</th>
+              ${groupHeaders}
             </tr>
-            <tr>
-              <th class="col-group-cherie">Push</th>
-              <th class="col-group-cherie">Pull</th>
-              <th class="col-group-angel">Push</th>
-              <th class="col-group-angel">Pull</th>
-            </tr>
+            <tr>${subHeaders}</tr>
           </thead>
-          <tbody id="tbody-${sanitizeId(weekStart)}">
-          </tbody>
+          <tbody id="tbody-${sanitizeId(weekStart)}"></tbody>
         </table>
       </div>
       <div class="week-footer"></div>
     </div>
   `;
 
-  // Populate tbody
   const tbody = card.querySelector(`#tbody-${sanitizeId(weekStart)}`);
-  for (const i of indices) {
-    tbody.appendChild(buildRow(i));
-  }
+  for (const i of indices) tbody.appendChild(buildRow(i));
 
   return card;
 }
 
 function buildRow(rowIndex) {
-  const row = rows[rowIndex];
-  const tr = document.createElement('tr');
+  const row      = rows[rowIndex];
+  const tr       = document.createElement('tr');
+  const userCells = users.map(u =>
+    `<td>${num(row[u.pushCol])}</td><td>${num(row[u.pullCol])}</td>`
+  ).join('');
   tr.innerHTML = `
     <td class="td-date">${row[COL.DATE] || '—'}</td>
     <td class="td-day">${row[COL.DAY] || ''}</td>
-    <td>${num(row[COL.CHERIE_PUSH])}</td>
-    <td>${num(row[COL.CHERIE_PULL])}</td>
-    <td>${num(row[COL.ANGEL_PUSH])}</td>
-    <td>${num(row[COL.ANGEL_PULL])}</td>
+    ${userCells}
   `;
   return tr;
 }
@@ -223,17 +312,14 @@ function renderLogToday() {
   const section = document.getElementById('log-today-section');
   const card    = document.getElementById('log-today-card');
 
-  if (!currentUser) {
+  const user = currentUser && users.find(u => u.name === currentUser);
+  if (!user) {
     section.classList.add('hidden');
     return;
   }
 
-  const todayStr    = getTodaySheetDate();
-  const todayIndex  = rows.findIndex(r => r[COL.DATE] === todayStr);
-  const pushCol     = currentUser === 'angel' ? COL.ANGEL_PUSH  : COL.CHERIE_PUSH;
-  const pullCol     = currentUser === 'angel' ? COL.ANGEL_PULL  : COL.CHERIE_PULL;
-  const colorClass  = currentUser === 'angel' ? 'angel' : 'cherie';
-  const displayName = currentUser === 'angel' ? 'Angel' : 'Cherie';
+  const todayStr   = getTodaySheetDate();
+  const todayIndex = rows.findIndex(r => r[COL.DATE] === todayStr);
 
   if (todayIndex === -1) {
     card.innerHTML = `<p class="log-today-missing">No entry for today (${todayStr}) in the sheet.</p>`;
@@ -241,13 +327,16 @@ function renderLogToday() {
     return;
   }
 
-  todayCounters.push = num(rows[todayIndex][pushCol]);
-  todayCounters.pull = num(rows[todayIndex][pullCol]);
+  todayCounters.push = num(rows[todayIndex][user.pushCol]);
+  todayCounters.pull = num(rows[todayIndex][user.pullCol]);
+
+  const userIndex = users.indexOf(user);
+  const color     = USER_COLORS[userIndex % USER_COLORS.length];
 
   card.innerHTML = `
     <div class="log-today-header">
       <div class="log-today-date">${formatDate(todayStr)}</div>
-      <span class="log-today-name ${colorClass}">${displayName}</span>
+      <span class="log-today-name" style="color:${color.text}">${currentUser}</span>
     </div>
     <div class="counters-grid">
       <div class="counter-item">
@@ -284,7 +373,6 @@ function adjustCounter(type, delta) {
   if (delta > 0) {
     const mascot = document.getElementById(`mascot-${type}`);
     if (mascot) {
-      // Immediately snap to off so each rapid press produces a fresh visible blink
       clearTimeout(mascot._timerOn);
       clearTimeout(mascot._timerOff);
       mascot.src = `images/${type}-off.png`;
@@ -300,6 +388,7 @@ function adjustCounter(type, delta) {
 async function saveToday(todayIndex) {
   if (!currentUser) { showToast('Select a user first.', 'error'); return; }
 
+  const user     = users.find(u => u.name === currentUser);
   const push     = todayCounters.push;
   const pull     = todayCounters.pull;
   const sheetRow = todayIndex + CONFIG.DATA_START_ROW;
@@ -313,10 +402,8 @@ async function saveToday(todayIndex) {
     const data = await res.json();
     if (data.error) throw new Error(data.error);
 
-    const pushCol = currentUser === 'angel' ? COL.ANGEL_PUSH : COL.CHERIE_PUSH;
-    const pullCol = currentUser === 'angel' ? COL.ANGEL_PULL : COL.CHERIE_PULL;
-    rows[todayIndex][pushCol] = push;
-    rows[todayIndex][pullCol] = pull;
+    rows[todayIndex][user.pushCol] = push;
+    rows[todayIndex][user.pullCol] = pull;
 
     updateSummary();
     renderWeeks();
@@ -340,13 +427,12 @@ function sanitizeId(str) {
 }
 
 function getTodaySheetDate() {
-  const now = new Date();
+  const now    = new Date();
   const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
   return `${String(now.getDate()).padStart(2,'0')}-${months[now.getMonth()]}-${now.getFullYear()}`;
 }
 
 function formatDate(dateStr) {
-  // Accepts "25-May-2026" or "YYYY-MM-DD"
   const d = new Date(dateStr.includes('-') && dateStr.length === 11
     ? dateStr.replace(/(\d{2})-([A-Za-z]{3})-(\d{4})/, '$2 $1, $3')
     : dateStr);
@@ -357,9 +443,9 @@ function formatDate(dateStr) {
 function isThisWeek(weekStartStr) {
   const ws = new Date(weekStartStr.replace(/(\d{2})-([A-Za-z]{3})-(\d{4})/, '$2 $1, $3'));
   const now = new Date();
-  const dayOfWeek = now.getDay(); // 0=Sun
+  const dayOfWeek  = now.getDay();
   const startOfWeek = new Date(now);
-  startOfWeek.setDate(now.getDate() - ((dayOfWeek + 6) % 7)); // Monday
+  startOfWeek.setDate(now.getDate() - ((dayOfWeek + 6) % 7));
   startOfWeek.setHours(0, 0, 0, 0);
   const endOfWeek = new Date(startOfWeek);
   endOfWeek.setDate(startOfWeek.getDate() + 6);

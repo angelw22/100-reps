@@ -152,7 +152,10 @@ header {
 }
 .btn-save:hover:not(:disabled) { opacity: 0.85; }
 
-.btn-sm { padding: 5px 10px; font-size: 0.78rem; }
+.btn-sm {    
+  padding: 0.5rem 1rem;
+  font-size: 0.78rem; 
+}
 
 /* ── Main Layout ───────────────────────────────────────────── */
 main {
@@ -451,8 +454,9 @@ tbody td.td-day {
 .td-angel-total  { color: var(--secondary-text);  font-weight: 600; }
 
 /* Column group headers in table */
-.col-group-cherie { background: var(--secondary-dim); color: var(--secondary-text); border: 2px solid white}
-.col-group-angel  { background: var(--secondary-dim);  color: var(--secondary-text); border: 2px solid white}
+.col-group-cherie,
+.col-group-angel,
+.col-group-user { background: var(--secondary-dim); color: var(--secondary-text); border: 2px solid white; }
 .col-header { background: var(--secondary); color: var(--secondary-text); border: 2px solid white};
 
 /* ── Number Inputs ─────────────────────────────────────────── */
@@ -613,4 +617,38 @@ tbody td.td-day {
   min-width: 120px;
   font-size: 1.1rem;
   padding: 12px 24px;
+}
+
+.add-user-form {
+  margin-top: 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+.add-user-form input {
+  width: 100%;
+  padding: 10px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: 1rem;
+  text-align: center;
+  outline: none;
+  color: var(--text);
+  background: var(--bg);
+}
+.add-user-form input:focus {
+  border-color: var(--secondary);
+  box-shadow: 0 0 0 3px var(--secondary-dim);
+}
+.add-user-actions {
+  display: flex;
+  gap: 10px;
+}
+
+#new-user-name {
+  padding: 1em;
+  margin: 1em;
+  border-radius: 8px;
+  border: 2px solid #FFEC9A;
 }
